@@ -8,7 +8,6 @@ st.set_page_config(page_title="Stockholm Tech Assistant", page_icon="🤖", layo
 st.title("🤖 Stockholm Tech Policy Assistant")
 st.caption("Ask questions about our fictional company's remote work, vacation, and hardware policies.")
 
-# We use a fictional document as the knowledge base
 KNOWLEDGE_BASE = """
 Nordic Cloud Solutions AB - Employee Handbook (Stockholm Office)
 
@@ -32,59 +31,51 @@ We fully support parental leave in accordance with Försäkringskassan.
 The company supplements the state allowance to ensure 90% of your base salary for the first 6 months of parental leave.
 """
 
-# Try to get the API key from Streamlit Secrets (for deployment)
 try:
     api_key = st.secrets["GEMINI_API_KEY"]
 except Exception:
-    # Fallback for local testing if secrets aren't set
     api_key = st.sidebar.text_input("Gemini API Key", type="password")
 
 with st.sidebar:
     st.header("About")
     st.markdown("This chatbot uses **RAG**. It chunks an HR policy, embeds it, and uses FAISS to retrieve context before answering.")
 
-# Initialize session state for chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# The core RAG logic (Cached so it only runs once)
 @st.cache_resource(show_spinner=False)
 def setup_rag(key):
     genai.configure(api_key=key)
     chunks = [c.strip() for c in KNOWLEDGE_BASE.split("\n\n") if c.strip()]
     
-    # Embed chunks
+    # UPDATED: Using the new gemini-embedding-001 model
     response = genai.embed_content(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         content=chunks,
         task_type="retrieval_document"
     )
     embeddings = np.array(response['embedding'], dtype=np.float32)
     
-    # Build FAISS index
     index = faiss.IndexFlatL2(embeddings.shape[1])
     index.add(embeddings)
     return chunks, index
 
 def get_answer(prompt, chunks, index):
-    # 1. Embed the user's question
+    # UPDATED: Using the new gemini-embedding-001 model
     res = genai.embed_content(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         content=prompt,
         task_type="retrieval_query"
     )
     query_vector = np.array([res['embedding']], dtype=np.float32)
     
-    # 2. Search FAISS for the top 2 most relevant chunks
     _, indices = index.search(query_vector, 2)
     context = "\n\n".join([chunks[i] for i in indices[0]])
     
-    # 3. Generate the answer with Gemini 1.5 Flash
     model = genai.GenerativeModel('gemini-1.5-flash')
     system_prompt = f"""
     You are a helpful HR assistant for Nordic Cloud Solutions. 
@@ -98,17 +89,14 @@ def get_answer(prompt, chunks, index):
     response = model.generate_content(system_prompt + "\n\nQuestion: " + prompt)
     return response.text
 
-# Chat Input
 if prompt := st.chat_input("e.g., How many remote days do I get?"):
     if not api_key:
         st.error("API Key missing. Please check the sidebar or Streamlit Secrets.")
     else:
-        # Display user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Generate response
         with st.chat_message("assistant"):
             with st.spinner("Searching policy documents..."):
                 try:
