@@ -76,7 +76,7 @@ def get_answer(prompt, chunks, index):
     _, indices = index.search(query_vector, 2)
     context = "\n\n".join([chunks[i] for i in indices[0]])
     
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-flash')
     system_prompt = f"""
     You are a helpful HR assistant for Nordic Cloud Solutions. 
     Answer the user's question using ONLY the context provided below. 
