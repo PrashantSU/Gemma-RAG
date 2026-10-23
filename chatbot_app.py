@@ -32,12 +32,16 @@ We fully support parental leave in accordance with Försäkringskassan.
 The company supplements the state allowance to ensure 90% of your base salary for the first 6 months of parental leave.
 """
 
-# API Key Input in Sidebar
+# Try to get the API key from Streamlit Secrets (for deployment)
+try:
+    api_key = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    # Fallback for local testing if secrets aren't set
+    api_key = st.sidebar.text_input("Gemini API Key", type="password")
+
 with st.sidebar:
-    st.header("Configuration")
-    api_key = st.text_input("Gemini API Key", type="password", help="Get a free key at aistudio.google.com")
-    st.markdown("---")
-    st.markdown("This chatbot uses **RAG (Retrieval-Augmented Generation)**. It chunks an HR policy, embeds it using Google's `text-embedding-004`, and uses FAISS to retrieve relevant context before answering.")
+    st.header("About")
+    st.markdown("This chatbot uses **RAG**. It chunks an HR policy, embeds it, and uses FAISS to retrieve context before answering.")
 
 # Initialize session state for chat history
 if "messages" not in st.session_state:
@@ -97,7 +101,7 @@ def get_answer(prompt, chunks, index):
 # Chat Input
 if prompt := st.chat_input("e.g., How many remote days do I get?"):
     if not api_key:
-        st.error("Please enter your Gemini API Key in the sidebar to start chatting.")
+        st.error("API Key missing. Please check the sidebar or Streamlit Secrets.")
     else:
         # Display user message
         st.session_state.messages.append({"role": "user", "content": prompt})
